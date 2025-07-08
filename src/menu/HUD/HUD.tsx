@@ -1,7 +1,8 @@
 import { useCityStore } from "../../stores/useCityStore";
 
 export const HUD = () => {
-  const { resources, population } = useCityStore();
+   const resources = useCityStore((state) => state.resources);
+  const population = useCityStore((state) => state.population)
 
   return (
     <div style={{ display: "flex",  marginBottom: 10 }}>
