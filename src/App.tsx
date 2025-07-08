@@ -5,10 +5,12 @@ import "./App.css";
 import { BuildingMenu } from "./menu/BuildingMenu";
 import { HUD } from "./menu/HUD/HUD";
 import { GameLoop } from "./game/GameLoop";
+import { ProductionQueueHUD } from "./components/ui/ProductionQueueHUD";
 
 function App() {
   return (
     <div className="App">
+      <GameLoop />
       <div
         style={{
           display: "flex",
@@ -23,12 +25,14 @@ function App() {
         <h1>City Builder React TS</h1>
         <div style={{ display: "flex" }}>
           <CityGrid />
-          <GameLoop/>
-          <div style={{
-            margin:20
-          }}>
+          <div
+            style={{
+              margin: 20,
+            }}
+          >
             <HUD />
             <BuildingMenu />
+            <ProductionQueueHUD />
           </div>
         </div>
       </div>

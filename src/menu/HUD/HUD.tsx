@@ -2,10 +2,11 @@ import { useCityStore } from "../../stores/useCityStore";
 
 export const HUD = () => {
    const resources = useCityStore((state) => state.resources);
-  const population = useCityStore((state) => state.population)
+  const population = useCityStore((state) => state.population);
+
 
   return (
-    <div style={{ display: "flex",  marginBottom: 10 }}>
+    <div style={{ display: "flex",  marginBottom: 10 ,background:"#eee"}}>
       <div>
         <h3>Ressources :</h3>
         <div>💰 Or : {resources.gold}</div>

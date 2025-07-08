@@ -2,18 +2,17 @@ import { useEffect } from "react";
 import { useCityStore } from "../stores/useCityStore";
 
 export const GameLoop = () => {
-  const tickProduction = useCityStore((s) => s.tickProduction);
   const refreshProductionQueue = useCityStore((s) => s.refreshProductionQueue);
 
   useEffect(() => {
-    refreshProductionQueue();
+    refreshProductionQueue(); // ✅ une seule fois au lancement
+
     const interval = setInterval(() => {
-      refreshProductionQueue();
-      useCityStore.getState().tickProduction(1000);
+      useCityStore.getState().tickProduction(1000); // ✅ production seulement
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [refreshProductionQueue]);
+  }, []); // 👈 enlève la dépendance à refreshProductionQueue
 
   return null;
 };

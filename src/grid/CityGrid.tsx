@@ -53,7 +53,7 @@ export const CityGrid = () => {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: `repeat(30,20px)`,
+        gridTemplateColumns: `repeat(30,30px)`,
       }}
     >
       {grid.map((tile) => (

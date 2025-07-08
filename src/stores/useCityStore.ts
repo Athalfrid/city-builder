@@ -4,9 +4,17 @@ import {
   buildingCosts,
   buildingPopulation,
   buildingProduction,
+  canProduce,
   EMPTY_BUILDING,
 } from "../constants/building";
 import { getDistance } from "../utils/distance";
+
+type ResourceType = {
+  gold: number;
+  wood: number;
+  food: number;
+  stone: number;
+};
 
 export type BuildingType =
   | "house"
@@ -58,7 +66,7 @@ interface CityState {
   population: PopulationState;
   productionQueue: ProductionTask[];
   tickProduction: (delta: number) => void;
-  refreshProductionQueue:()=> void;
+  refreshProductionQueue: () => void;
 }
 
 export const useCityStore = create<CityState>((set, get) => {
@@ -90,7 +98,7 @@ export const useCityStore = create<CityState>((set, get) => {
   return {
     width: 30,
     height: 30,
-    tileSize: 20,
+    tileSize: 30,
     setTileSize: (size) => set({ tileSize: size }),
     grid: [],
     selectedBuilding: "house",
@@ -106,7 +114,7 @@ export const useCityStore = create<CityState>((set, get) => {
       employedPopulation: 0,
       unemployedPopulation: 0,
     },
-    productionQueue:[],
+    productionQueue: [],
 
     spendResources: (cost) => {
       const { resources } = get();
@@ -129,16 +137,19 @@ export const useCityStore = create<CityState>((set, get) => {
       set({ grid });
     },
 
-    addResources: (gain) => {
-      const { resources } = get();
-      const newResources = { ...resources };
-      for (const key in gain) {
-        const res = key as keyof Resources;
-        newResources[res] += gain[res] ?? 0;
-      }
-      set({ resources: newResources });
-    },
+    addResources: (production: Partial<ResourceType>) => {
+      set((state) => {
+        const newResources = { ...state.resources };
 
+        for (const [key, value] of Object.entries(production) as [
+          keyof ResourceType,
+          number
+        ][]) {
+          newResources[key] = (newResources[key] ?? 0) + value;
+        }
+        return { resources: newResources };
+      });
+    },
     placeBuilding: (x, y, building) => {
       if (building === "townhall") {
         const alreadyExists = get().grid.some(
@@ -190,6 +201,7 @@ export const useCityStore = create<CityState>((set, get) => {
       newGrid[index] = { ...newGrid[index], building };
       set({ grid: newGrid });
       recalcPopulation(); // 🔁 ici
+      get().refreshProductionQueue();
     },
 
     removeBuilding: (tile) => {
@@ -211,6 +223,7 @@ export const useCityStore = create<CityState>((set, get) => {
       );
       set({ grid: newGrid });
       recalcPopulation(); // 🔁 ici aussi
+      get().refreshProductionQueue();
     },
 
     refreshProductionQueue: () => {
@@ -224,8 +237,10 @@ export const useCityStore = create<CityState>((set, get) => {
 
       for (const tile of grid) {
         const { building, x, y } = tile;
+        if (!canProduce(building)) continue;
 
-        if (building === "none" || !buildingProduction[building]) continue;
+        if (building === "none" || buildingProduction[building] == null)
+          continue;
 
         const { workforce } = buildingPopulation[building];
         if (availableWorkers < workforce) continue;
@@ -244,8 +259,9 @@ export const useCityStore = create<CityState>((set, get) => {
 
       for (const task of productionQueue) {
         const newTime = task.timeLeft - delta;
-
+        //MON SOUCIS EST LA APRES
         if (newTime <= 0) {
+            console.log("prod terminée")
           const production = buildingProduction[task.type];
 
           if (production) {
@@ -260,11 +276,11 @@ export const useCityStore = create<CityState>((set, get) => {
 
           const newTimeMs = 3000 + distance * 500;
           updatedQueue.push({ ...task, timeLeft: newTimeMs });
-        }else{
-            updatedQueue.push({...task,timeLeft:newTime})
+        } else {
+          updatedQueue.push({ ...task, timeLeft: newTime });
         }
       }
-      set({productionQueue: updatedQueue});
+      set({ productionQueue: updatedQueue });
     },
   };
 });

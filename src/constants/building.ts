@@ -11,13 +11,19 @@ export const buildingList: {
   type: BuildingType;
   label: string;
   emoji: string;
+  canProduce: boolean;
 }[] = [
-  { type: "townhall", label: "Hôtel de ville", emoji: "🏛️" },
-  { type: "house", label: "Maison", emoji: "🏠" },
-  { type: "farm", label: "Ferme", emoji: "🌾" },
-  { type: "market", label: "Marché", emoji: "🏪" },
-  { type: "mine", label: "Mine", emoji: "⛏️ " },
-  { type: "lumberjack", label: "Cabane de bûcheron", emoji: "🪓" },
+  { type: "townhall", label: "Hôtel de ville", emoji: "🏛️", canProduce: false },
+  { type: "house", label: "Maison", emoji: "🏠", canProduce: false },
+  { type: "farm", label: "Ferme", emoji: "🌾", canProduce: true },
+  { type: "market", label: "Marché", emoji: "🏪", canProduce: true },
+  { type: "mine", label: "Mine", emoji: "⛏️ ", canProduce: true },
+  {
+    type: "lumberjack",
+    label: "Cabane de bûcheron",
+    emoji: "🪓",
+    canProduce: true,
+  },
 ];
 
 export const buildingCosts: Record<BuildingType, Partial<Resources>> = {
@@ -48,4 +54,8 @@ export const buildingProduction: Record<BuildingType, Partial<Resources>> = {
   mine: { stone: 4 },
   lumberjack: { wood: 4 },
   none: {},
+};
+
+export const canProduce = (type: BuildingType): boolean => {
+  return buildingList.find((b) => b.type === type)?.canProduce ?? false;
 };
