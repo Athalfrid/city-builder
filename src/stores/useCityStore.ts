@@ -1,73 +1,17 @@
 import { create } from "zustand";
-import { generateMapWithPerlin, MapTile } from "../services/mapGenerator";
+import { generateMapWithPerlin } from "../services/mapGenerator";
+import { getDistance } from "../utils/distance";
 import {
   buildingCosts,
   buildingPopulation,
   buildingProduction,
   canProduce,
   EMPTY_BUILDING,
-} from "../constants/building";
-import { getDistance } from "../utils/distance";
-
-type ResourceType = {
-  gold: number;
-  wood: number;
-  food: number;
-  stone: number;
-};
-
-export type BuildingType =
-  | "house"
-  | "farm"
-  | "market"
-  | "townhall"
-  | "mine"
-  | "lumberjack"
-  | "none";
-
-export interface Tile {
-  x: number;
-  y: number;
-  building: BuildingType;
-}
-export interface Resources {
-  gold: number;
-  wood: number;
-  food: number;
-  stone: number;
-}
-interface PopulationState {
-  totalPopulation: number;
-  employedPopulation: number;
-  unemployedPopulation: number;
-}
-
-interface ProductionTask {
-  x: number;
-  y: number;
-  type: BuildingType;
-  timeLeft: number;
-}
-
-interface CityState {
-  width: number;
-  height: number;
-  grid: MapTile[];
-  tileSize: number;
-  setTileSize: (size: number) => void;
-  selectedBuilding: BuildingType;
-  setSelectedBuilding: (building: BuildingType) => void;
-  initGrid: () => void;
-  placeBuilding: (x: number, y: number, building: BuildingType) => void;
-  removeBuilding: (tile: MapTile) => void;
-  resources: Resources;
-  spendResources: (cost: Partial<Resources>) => boolean;
-  addResources: (gain: Partial<Resources>) => void;
-  population: PopulationState;
-  productionQueue: ProductionTask[];
-  tickProduction: (delta: number) => void;
-  refreshProductionQueue: () => void;
-}
+} from "../types/building";
+import { Resources, ResourceType } from "../types/resources";
+import { ProductionTask } from "../types/production";
+import { CityState } from "./CityState";
+import { MapTile, TerrainType } from "../types/map";
 
 export const useCityStore = create<CityState>((set, get) => {
   // 💡 Fonction interne
@@ -95,6 +39,32 @@ export const useCityStore = create<CityState>((set, get) => {
     });
   };
 
+  const transformSurroundingToWheat = (
+    x: number,
+    y: number,
+    grid: MapTile[]
+  ) => {
+    const newGrid = [...grid];
+
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const nx = x + dx;
+        const ny = y + dy;
+
+        const index = newGrid.findIndex((t) => t.x === nx && t.y === ny);
+        if (
+          index !== -1 &&
+          newGrid[index].terrain === "grass" &&
+          !(nx === x && ny === y)
+        ) {
+          newGrid[index].terrain = "wheat";
+        }
+      }
+    }
+
+    return newGrid;
+  };
+
   return {
     width: 30,
     height: 30,
@@ -115,7 +85,17 @@ export const useCityStore = create<CityState>((set, get) => {
       unemployedPopulation: 0,
     },
     productionQueue: [],
+    toolMode: "build",
+    setToolMode: (mode) => set({ toolMode: mode }),
 
+    //INITIALISATION DES DIMENSIONS ET DE LA CARTE EN FONCTION DE CELLES-CI
+    initGrid: () => {
+      const { width, height } = get();
+      const grid = generateMapWithPerlin(width, height);
+      set({ grid });
+    },
+
+    // CALCUL DU COUT DE CONSTRUCTION EN RESSOURCES
     spendResources: (cost) => {
       const { resources } = get();
       for (const key in cost) {
@@ -131,12 +111,7 @@ export const useCityStore = create<CityState>((set, get) => {
       return true;
     },
 
-    initGrid: () => {
-      const { width, height } = get();
-      const grid = generateMapWithPerlin(width, height);
-      set({ grid });
-    },
-
+    //AJOUT DES RESSOURCES AU STOCK VIA PRODUCTION OU DESTRUCTION D'UN BATIMENT
     addResources: (production: Partial<ResourceType>) => {
       set((state) => {
         const newResources = { ...state.resources };
@@ -150,17 +125,10 @@ export const useCityStore = create<CityState>((set, get) => {
         return { resources: newResources };
       });
     },
-    placeBuilding: (x, y, building) => {
-      if (building === "townhall") {
-        const alreadyExists = get().grid.some(
-          (tile) => tile.building === "townhall"
-        );
-        if (alreadyExists) {
-          alert("Il y a déjà un hôtel de ville !");
-          return;
-        }
-      }
 
+    //PLACEMENT D'UN BATIMENT EN FONCTION DES COORDONNEES ET DU TYPE DE BATIMENT
+    placeBuilding: (x, y, building) => {
+      //VERIFICATION DE LA PRÉSENCE DE L'HOTEL DE VILLE
       if (building !== "townhall") {
         const hasTownhall = get().grid.some(
           (tile) => tile.building === "townhall"
@@ -171,6 +139,18 @@ export const useCityStore = create<CityState>((set, get) => {
         }
       }
 
+      //VERIFICATION S'IL N'Y A PAS DEJA UN HOTEL DE VILLE
+      if (building === "townhall") {
+        const alreadyExists = get().grid.some(
+          (tile) => tile.building === "townhall"
+        );
+        if (alreadyExists) {
+          alert("Il y a déjà un hôtel de ville !");
+          return;
+        }
+      }
+
+      //VERIFICATION DE LA MAIN D'OEUVRE
       const neededWorkforce = buildingPopulation[building].workforce;
       const { population } = get();
       if (
@@ -182,14 +162,28 @@ export const useCityStore = create<CityState>((set, get) => {
       }
 
       const { grid, spendResources } = get();
+
       const index = grid.findIndex((tile) => tile.x === x && tile.y === y);
       if (index === -1 || grid[index].building !== "none") return;
 
+      //EMPECHER DE CONSTRUIRE SUR L'EAU
       if (grid[index].terrain === "water") {
         alert("Vous avez déjà réussi à faire tenir un batiment sur l'eau ?");
         return;
       }
 
+      //PLACER DES CHAMPS AUTOUR D'UNE FERME
+      if (building === "farm") {
+        const newGrid = transformSurroundingToWheat(x, y, grid);
+        set({ grid: newGrid });
+      }
+      //EMPECHER DE CONSTRUIRE SUR LES CHAMPS DE BLÉ
+      if (grid[index].terrain === "wheat") {
+        alert("Tu ne peux pas construire sur un champs de blé !");
+        return;
+      }
+
+      //VERIFICATION DES RESSOURCES DISPONIBLES
       const cost = buildingCosts[building];
       const canAfford = spendResources(cost);
       if (!canAfford) {
@@ -200,10 +194,12 @@ export const useCityStore = create<CityState>((set, get) => {
       const newGrid = [...grid];
       newGrid[index] = { ...newGrid[index], building };
       set({ grid: newGrid });
-      recalcPopulation(); // 🔁 ici
+      //CALCUL DE LA POPULATION ET DE LA MAIN D'OEUVRE APRES LA CONSTRUCTION
+      recalcPopulation();
       get().refreshProductionQueue();
     },
 
+    //SUPPRIMER UN BATIMENT (REMBOURSEMENT PARTIEL)
     removeBuilding: (tile) => {
       const { grid, addResources } = get();
       if (tile.building === "none") return;
@@ -222,7 +218,8 @@ export const useCityStore = create<CityState>((set, get) => {
           : t
       );
       set({ grid: newGrid });
-      recalcPopulation(); // 🔁 ici aussi
+      //CALCUL DE LA POPULATION ET DE LA MAIN D'OEUVRE APRES LA CONSTRUCTION
+      recalcPopulation();
       get().refreshProductionQueue();
     },
 
@@ -261,7 +258,7 @@ export const useCityStore = create<CityState>((set, get) => {
         const newTime = task.timeLeft - delta;
         //MON SOUCIS EST LA APRES
         if (newTime <= 0) {
-            console.log("prod terminée")
+          console.log("prod terminée");
           const production = buildingProduction[task.type];
 
           if (production) {
@@ -281,6 +278,34 @@ export const useCityStore = create<CityState>((set, get) => {
         }
       }
       set({ productionQueue: updatedQueue });
+    },
+
+    removeResource: (tile: MapTile) => {
+      const { resources } = get();
+      const { x, y, terrain } = tile;
+
+      if (terrain !== "forest" && terrain !== "mountain" && terrain !== "wheat") {
+        alert("Tu ne peux supprimer que des ressources naturelles !");
+        return;
+      }
+
+      const cost = 2;
+      if (resources.gold < cost) {
+        alert("Pas assez d’or pour utiliser le bulldozer !");
+        return;
+      }
+
+      const newResources = { ...resources, gold: resources.gold - cost };
+      const newGrid = get().grid.map((t) =>
+        t.x === x && t.y === y
+          ? {
+              ...t,
+              terrain: terrain === "forest" ? "grass" : terrain === "mountain" ? "desert" : "grass" as TerrainType,
+            }
+          : t
+      );
+
+      set({ grid: newGrid, resources: newResources });
     },
   };
 });

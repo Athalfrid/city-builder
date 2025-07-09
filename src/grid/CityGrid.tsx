@@ -1,10 +1,19 @@
-import React, { use, useEffect } from "react";
-import { BuildingType, useCityStore } from "../stores/useCityStore";
-import { MapTile, TerrainType } from "../services/mapGenerator";
+import React, { useEffect } from "react";
+import { useCityStore } from "../stores/useCityStore";
+import { MapTile, TerrainType } from "../types/map";
+import { BuildingType } from "../types/building";
 
 export const CityGrid = () => {
-  const { grid, tileSize, initGrid, placeBuilding, removeBuilding,selectedBuilding } =
-    useCityStore();
+  const {
+    grid,
+    tileSize,
+    initGrid,
+    placeBuilding,
+    removeBuilding,
+    selectedBuilding,
+    toolMode,
+    removeResource
+  } = useCityStore();
 
   useEffect(() => {
     initGrid();
@@ -16,34 +25,51 @@ export const CityGrid = () => {
     water: "🌊 Eau",
     mountain: "⛰️ Montagne",
     desert: "🏜️ Désert",
+    wheat: "🌾 Blé",
   };
 
   const buildingLabels: Record<BuildingType, string> = {
-    house: "🏠 Maison",
-    farm: "🌾 Ferme",
-    market: "🏪 Marché",
     townhall: "🏛️",
+    house: "🏠 Maison",
+    farm: "🏡 Ferme",
+    market: "🏪 Marché",
     mine: "⛏️",
-    lumberjack:"🪓",
+    lumberjack: "🪓",
     none: "",
   };
 
   const buildingLogos: Record<BuildingType, string> = {
-    house: "🏠",
-    farm: "🌾",
-    market: "🏪",
     townhall: "🏛️",
+    house: "🏠",
+    farm: "🏡",
+    market: "🏪",
     mine: "⛏️",
-    lumberjack:"🪓",
+    lumberjack: "🪓",
     none: "",
   };
 
-  const getTileLabels = (tile: MapTile) =>{
-    return `${buildingLogos[tile.building]}`
-  }
+  const getTileLabels = (tile: MapTile) => {
+    switch (tile.terrain) {
+      case "forest":
+        return "🌲";
+      case "water":
+        return "🌊";
+      case "mountain":
+        return "⛰️";
+      case "desert":
+        return "🏜️";
+      case "wheat":
+        return "🌾"; // 🌟 Ajout ici pour voir tes champs
+      default:
+        if (tile.building !== "none") {
+          return `${buildingLogos[tile.building]}`;
+        } else {
+          return "";
+        }
+    }
+  };
 
   const getTileTitle = (tile: MapTile) => {
-
     return `${terrainLabels[tile.terrain]} (${tile.x}, ${tile.y})${
       tile.building !== "none" ? " - " + buildingLabels[tile.building] : ""
     }`;
@@ -60,10 +86,14 @@ export const CityGrid = () => {
         <div
           key={`${tile.x}-${tile.y}`}
           onClick={() => {
-            if (tile.building !== "none") {
-              removeBuilding(tile);
-            } else {
-              placeBuilding(tile.x, tile.y, selectedBuilding);
+            if(toolMode === "recolter"){
+              removeResource(tile);
+            }else{
+              if (tile.building !== "none") {
+                removeBuilding(tile);
+              } else {
+                placeBuilding(tile.x, tile.y, selectedBuilding);
+              }
             }
           }}
           style={{
@@ -92,7 +122,7 @@ export const CityGrid = () => {
           }}
           title={getTileTitle(tile)}
         >
-            {getTileLabels(tile)}
+          {getTileLabels(tile)}
         </div>
       ))}
     </div>

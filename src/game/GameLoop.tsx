@@ -12,7 +12,7 @@ export const GameLoop = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []); // 👈 enlève la dépendance à refreshProductionQueue
+  }); 
 
   return null;
 };
