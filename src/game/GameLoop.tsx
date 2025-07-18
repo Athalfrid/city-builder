@@ -3,6 +3,7 @@ import { useCityStore } from "../stores/useCityStore";
 
 export const GameLoop = () => {
   const refreshProductionQueue = useCityStore((s) => s.refreshProductionQueue);
+  
 
   useEffect(() => {
     refreshProductionQueue(); // ✅ une seule fois au lancement

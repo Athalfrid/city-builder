@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { generateMapWithPerlin } from "../services/mapGenerator";
 import { getDistance } from "../utils/distance";
 import {
+  buildingConsumption,
   buildingCosts,
   buildingPopulation,
   buildingProduction,
@@ -9,9 +10,10 @@ import {
   EMPTY_BUILDING,
 } from "../types/building";
 import { Resources, ResourceType } from "../types/resources";
-import { ProductionTask } from "../types/production";
+import { Production, ProductionTask } from "../types/production";
 import { CityState } from "./CityState";
 import { MapTile, TerrainType } from "../types/map";
+import { Consumption } from "../types/consumption";
 
 export const useCityStore = create<CityState>((set, get) => {
   // 💡 Fonction interne
@@ -55,6 +57,7 @@ export const useCityStore = create<CityState>((set, get) => {
         if (
           index !== -1 &&
           newGrid[index].terrain === "grass" &&
+          newGrid[index].building === EMPTY_BUILDING &&
           !(nx === x && ny === y)
         ) {
           newGrid[index].terrain = "wheat";
@@ -65,20 +68,83 @@ export const useCityStore = create<CityState>((set, get) => {
     return newGrid;
   };
 
+  const recalcProduction = () => {
+    const { grid } = get();
+    const newProduction: Production = {
+      food: 0,
+      water: 0,
+      wood: 0,
+      stone: 0,
+      gold: 0,
+    };
+
+    for (const tile of grid) {
+      const prod = buildingProduction[tile.building] ?? {};
+      for (const key in prod) {
+        const resKey = key as keyof ResourceType;
+        newProduction[resKey] += prod[resKey] ?? 0;
+      }
+    }
+
+    set({ production: newProduction });
+  };
+
+  const recalcConsumption = () => {
+    const { grid } = get();
+    const newConsumption: Consumption = {
+      food: 0,
+      water: 0,
+      wood: 0,
+      stone: 0,
+      gold: 0,
+    };
+
+    for (const tile of grid) {
+      const building = tile.building;
+      const cons = buildingConsumption[building] ?? {};
+
+      for (const key in cons) {
+        const resKey = key as keyof ResourceType;
+        newConsumption[resKey] = (newConsumption[resKey] ?? 0) + cons[resKey]!;
+      }
+    }
+
+    set({ consumption: newConsumption });
+  };
+
   return {
     width: 30,
     height: 30,
     tileSize: 30,
     setTileSize: (size) => set({ tileSize: size }),
     grid: [],
-    selectedBuilding: "house",
+    selectedBuilding: "townhall",
     setSelectedBuilding: (building) => set({ selectedBuilding: building }),
     resources: {
       gold: 1000,
       wood: 1000,
       food: 1000,
       stone: 1000,
+      water: 0,
     },
+    production: {
+      gold: 0,
+      wood: 0,
+      food: 0,
+      stone: 0,
+      water: 0,
+    },
+    setProduction: (newProduction) =>
+      set(() => ({ production: newProduction })),
+    consumption: {
+      gold: 0,
+      wood: 0,
+      food: 0,
+      stone: 0,
+      water: 0,
+    },
+    setConsumption: (newConsumption) =>
+      set(() => ({ consumption: newConsumption })),
     population: {
       totalPopulation: 0,
       employedPopulation: 0,
@@ -196,6 +262,8 @@ export const useCityStore = create<CityState>((set, get) => {
       set({ grid: newGrid });
       //CALCUL DE LA POPULATION ET DE LA MAIN D'OEUVRE APRES LA CONSTRUCTION
       recalcPopulation();
+      recalcConsumption();
+      recalcProduction();
       get().refreshProductionQueue();
     },
 
@@ -234,42 +302,102 @@ export const useCityStore = create<CityState>((set, get) => {
 
       for (const tile of grid) {
         const { building, x, y } = tile;
-        if (!canProduce(building)) continue;
+        const canProd = canProduce(building);
+        if (!canProd) continue;
 
         if (building === "none" || buildingProduction[building] == null)
           continue;
 
         const { workforce } = buildingPopulation[building];
-        if (availableWorkers < workforce) continue;
+        if (availableWorkers < workforce) {
+          console.log(
+            `Pas assez de main d'oeuvre pour ${building} (nécessite ${workforce}, dispo ${availableWorkers})`
+          );
+          continue;
+        }
 
         availableWorkers -= workforce;
         const distance = getDistance(x, y, townhall.x, townhall.y);
         const timeMs = 3000 + distance * 500;
         newQueue.push({ x, y, type: building, timeLeft: timeMs });
       }
+
       set({ productionQueue: newQueue });
     },
 
+    removeProductionQueue: (taskToRemove: ProductionTask) => {
+      const { grid } = get();
+      const tileToRemove = grid.find(
+        (tile) => tile.x === taskToRemove.x && tile.y === taskToRemove.y
+      );
+
+      if (!tileToRemove) return;
+
+      get().removeBuilding(tileToRemove);
+
+      set((state) => ({
+        productionQueue: state.productionQueue.filter(
+          (task) =>
+            !(
+              task.x === taskToRemove.x &&
+              task.y === taskToRemove.y &&
+              task.type === taskToRemove.type
+            )
+        ),
+      }));
+    },
+
     tickProduction: (delta: number) => {
-      const { productionQueue, grid, addResources } = get();
+      get().refreshProductionQueue();
+      type ResourceKey = keyof ResourceType; // "water" | "food" | "wood" | "stone" | "gold"
+
+      const { productionQueue, grid, addResources, resources } = get();
       const updatedQueue: ProductionTask[] = [];
 
+      recalcConsumption();
+      const { consumption } = get();
+
+      const canConsume = Object.entries(consumption).every(([key, amount]) => {
+        return (resources[key as ResourceKey] ?? 0) >= amount;
+      });
+
+      if (canConsume) {
+        const newResources = { ...resources };
+        for (const key in consumption) {
+          const resKey = key as ResourceKey;
+          newResources[resKey] =
+            (newResources[resKey] ?? 0) - (consumption[resKey] ?? 0);
+        }
+        set({ resources: newResources });
+      } else {
+        return;
+      }
       for (const task of productionQueue) {
         const newTime = task.timeLeft - delta;
-        //MON SOUCIS EST LA APRES
         if (newTime <= 0) {
-          console.log("prod terminée");
-          const production = buildingProduction[task.type];
+          const buildingProd = buildingProduction[task.type];
+          const buildingCons = buildingConsumption[task.type] ?? {};
 
-          if (production) {
-            addResources(production);
+          const netProduction: Partial<ResourceType> = {};
+
+          for (const key in buildingProd) {
+            const resKey = key as ResourceKey;
+            const prodAmount = buildingProd[resKey] ?? 0;
+            const consAmount = buildingCons[resKey] ?? 0;
+
+            const bilan = prodAmount - consAmount;
+            if (bilan > 0) {
+              netProduction[resKey] = bilan;
+            }
           }
-          const distance = getDistance(
-            task.x,
-            task.y,
-            grid.find((t) => t.building === "townhall")?.x ?? 0,
-            grid.find((t) => t.building === "townhall")?.y ?? 0
-          );
+          if (Object.entries(netProduction).length > 0) {
+            addResources(netProduction);
+          }
+
+          const townhall = grid.find((t) => t.building === "townhall");
+          const distance = townhall
+            ? getDistance(task.x, task.y, townhall.x, townhall.y)
+            : 0;
 
           const newTimeMs = 3000 + distance * 500;
           updatedQueue.push({ ...task, timeLeft: newTimeMs });
@@ -277,6 +405,7 @@ export const useCityStore = create<CityState>((set, get) => {
           updatedQueue.push({ ...task, timeLeft: newTime });
         }
       }
+
       set({ productionQueue: updatedQueue });
     },
 
@@ -284,7 +413,11 @@ export const useCityStore = create<CityState>((set, get) => {
       const { resources } = get();
       const { x, y, terrain } = tile;
 
-      if (terrain !== "forest" && terrain !== "mountain" && terrain !== "wheat") {
+      if (
+        terrain !== "forest" &&
+        terrain !== "mountain" &&
+        terrain !== "wheat"
+      ) {
         alert("Tu ne peux supprimer que des ressources naturelles !");
         return;
       }
@@ -300,7 +433,12 @@ export const useCityStore = create<CityState>((set, get) => {
         t.x === x && t.y === y
           ? {
               ...t,
-              terrain: terrain === "forest" ? "grass" : terrain === "mountain" ? "desert" : "grass" as TerrainType,
+              terrain:
+                terrain === "forest"
+                  ? "grass"
+                  : terrain === "mountain"
+                  ? "desert"
+                  : ("grass" as TerrainType),
             }
           : t
       );

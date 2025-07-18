@@ -35,6 +35,7 @@ export const CityGrid = () => {
     market: "🏪 Marché",
     mine: "⛏️",
     lumberjack: "🪓",
+    well:"⛲",
     none: "",
   };
 
@@ -45,6 +46,7 @@ export const CityGrid = () => {
     market: "🏪",
     mine: "⛏️",
     lumberjack: "🪓",
+    well:"⛲",
     none: "",
   };
 

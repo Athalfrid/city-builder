@@ -1,4 +1,4 @@
-import { Resources } from "./resources";
+import { Resources, ResourceType } from "./resources";
 
 export const EMPTY_BUILDING: BuildingType = "none";
 
@@ -9,6 +9,7 @@ export type BuildingType =
   | "market"
   | "mine"
   | "lumberjack"
+  | "well"
   | "none";
 
 export interface BuildingPopulation {
@@ -33,6 +34,7 @@ export const buildingList: {
     emoji: "🪓",
     canProduce: true,
   },
+  { type: "well", label: "Puit", emoji: "⛲", canProduce: true },
 ];
 
 export const buildingCosts: Record<BuildingType, Partial<Resources>> = {
@@ -42,6 +44,7 @@ export const buildingCosts: Record<BuildingType, Partial<Resources>> = {
   market: { wood: 30, gold: 30 }, //un marché coûte 30 bois et 30 or
   mine: { wood: 20, gold: 10 },
   lumberjack: { stone: 20, gold: 10 },
+  well: { stone: 10, gold: 5 },
   none: {},
 };
 
@@ -52,6 +55,7 @@ export const buildingPopulation: Record<BuildingType, BuildingPopulation> = {
   market: { capacity: 0, workforce: 4 }, // un marché nécessite 4 personnes
   mine: { capacity: 0, workforce: 6 }, // une mine de pierre nécessite 6 personnes
   lumberjack: { capacity: 0, workforce: 6 }, // une cabane de bûcheron nécessite 6 personnes
+  well: { capacity: 0, workforce: 5 }, // un puit nécessite 5 personnes
   none: { capacity: 0, workforce: 0 },
 };
 
@@ -62,6 +66,21 @@ export const buildingProduction: Record<BuildingType, Partial<Resources>> = {
   market: { gold: 3 }, // produit 3 or par cycle
   mine: { stone: 4 },
   lumberjack: { wood: 4 },
+  well: { water: 3 },
+  none: {},
+};
+
+export const buildingConsumption: Record<
+  BuildingType,
+  Partial<ResourceType>
+> = {
+  townhall: {},
+  house: { food: 1, water: 1 }, //Consomme 1 unité de nourriture et d'eau par maison
+  market: {},
+  farm: {},
+  lumberjack: {},
+  mine: {},
+  well: {},
   none: {},
 };
 

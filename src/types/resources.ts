@@ -1,13 +1,15 @@
 export interface Resources {
-  gold: number;
-  wood: number;
+  water: number;
   food: number;
+  wood: number;
   stone: number;
+  gold: number;
 }
 
 export type ResourceType = {
-  gold: number;
-  wood: number;
+  water: number;
   food: number;
+  wood: number;
   stone: number;
+  gold: number;
 };

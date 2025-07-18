@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import logo from "./logo.svg";
 import { CityGrid } from "./grid/CityGrid";
 import "./App.css";
@@ -8,6 +8,15 @@ import { GameLoop } from "./game/GameLoop";
 import { ProductionQueueHUD } from "./components/ui/ProductionQueueHUD";
 
 function App() {
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
+  });
   return (
     <div className="App">
       <GameLoop />
@@ -23,14 +32,14 @@ function App() {
         }}
       >
         <h1>City Builder React TS</h1>
-        <div style={{ display: "flex" }}>
+        <HUD />
+        <div style={{ display: "flex" ,marginTop:5}}>
           <CityGrid />
           <div
             style={{
               margin: 20,
             }}
           >
-            <HUD />
             <BuildingMenu />
             <ProductionQueueHUD />
           </div>

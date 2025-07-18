@@ -7,7 +7,8 @@ import {
 } from "../types/building";
 
 export const BuildingMenu = () => {
-  const { selectedBuilding, setSelectedBuilding, setToolMode,toolMode } = useCityStore();
+  const { selectedBuilding, setSelectedBuilding, setToolMode, toolMode } =
+    useCityStore();
   const hasTownhall = useCityStore((state) =>
     state.grid.some((tile) => tile.building === "townhall")
   );
@@ -71,10 +72,10 @@ export const BuildingMenu = () => {
             cursor:
               type === "townhall" && hasTownhall ? "not-allowed" : "pointer",
             backgroundColor:
-              selectedBuilding === type
-                ? "#4caf50"
-                : type === "townhall" && hasTownhall
+              type === "townhall" && hasTownhall
                 ? "#ccc"
+                : selectedBuilding === type
+                ? "#4caf50"
                 : "#eee",
             border: "none",
             borderRadius: 4,

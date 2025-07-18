@@ -6,3 +6,11 @@ export interface ProductionTask {
   type: BuildingType;
   timeLeft: number;
 }
+
+export interface Production {
+  gold: number;
+  wood: number;
+  food: number;
+  stone: number;
+  water: number;
+}
